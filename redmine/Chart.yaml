@@ -1,0 +1,6 @@
+apiVersion: v2
+name: redmine
+description: Redmine + MySQL enterprise-ready chart
+type: application
+version: 0.3.0
+appVersion: "1.0"

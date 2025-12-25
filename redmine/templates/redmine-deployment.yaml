@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-redmine
+spec:
+  replicas: {{ .Values.redmine.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-redmine
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-redmine
+    spec:
+      securityContext:
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox
+          command: ['sh', '-c', 'until nc -z {{ .Release.Name }}-mysql 3306; do sleep 5; done']
+      containers:
+        - name: redmine
+          image: {{ .Values.redmine.image }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: REDMINE_DB_MYSQL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-config
+                  key: REDMINE_DB_MYSQL
+            - name: REDMINE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: REDMINE_DB_PASSWORD
+            - name: REDMINE_SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: REDMINE_SECRET_KEY_BASE
+            - name: REDMINE_PORT
+              value: "3000"
+          resources:
+            requests:
+              cpu: {{ .Values.redmine.resources.requests.cpu }}
+              memory: {{ .Values.redmine.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.redmine.resources.limits.cpu }}
+              memory: {{ .Values.redmine.resources.limits.memory }}
+          startupProbe:
+            httpGet:
+              path: /
+              port: 3000
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 20
